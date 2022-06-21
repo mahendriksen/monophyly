@@ -1,0 +1,113 @@
+from itertools import product
+from tree2 import *
+import matplotlib.pyplot as plt
+
+def is_binary(t):
+    """
+    Check if the tree is binary.
+    """
+    if not isinstance(t, tuple):
+        return True
+    return len(t) == 2 and all(is_binary(s) for s in t)
+
+def flatten(l, ltypes=(list, tuple)):
+    ltype = type(l)
+    l = list(l)
+    i = 0
+    while i < len(l):
+        while isinstance(l[i], ltypes):
+            if not l[i]:
+                l.pop(i)
+                i -= 1
+                break
+            else:
+                l[i:i + 1] = l[i]
+        i += 1
+    return ltype(l)
+
+def is_cluster_monophyletic(cluster,trait,leaves):
+    flatlist = flatten(cluster)
+    not_cluster = set([trait[x] for x in leaves if x not in flatlist])
+    clustersame = set([trait[i] for i in flatlist])
+    no_other = not clustersame.issubset(not_cluster)
+    return len(set([trait[i] for i in flatlist])) == 1 and no_other
+
+def is_tree_monophyletic(tree1,trait1,leaves):
+    if isinstance(tree1,int):
+        return False
+    elif is_cluster_monophyletic(tree1,trait1,leaves):
+        return True
+    else:
+        return any(is_tree_monophyletic(subtree,trait1,leaves) for subtree in tree1)
+
+def is_tree_caterpillar(tree):
+    if isinstance(tree,int):
+        return True
+    elif all(isinstance(subtree,int) for subtree in tree):
+        return True
+    elif all(isinstance(subtree,tuple) for subtree in tree):
+        return False
+    else:
+        return all(is_tree_caterpillar(subtree) for subtree in tree)
+
+min_counts = []
+min_truth = []
+max_counts = []
+max_truth = []
+
+y = 4
+
+tests = range(5,6)
+
+for n in tests:
+    print("Currently testing n = ", n)
+    X = range(n)
+
+    all_trees_list = list(all_trees(X))
+
+    binary_trees_list = [t for t in all_trees_list if is_binary(t)]
+
+    tree_by_monophyly = {}
+
+    traits_list = list(product(range(y), repeat = n))
+
+    m = len(binary_trees_list)
+    tree_count = 0
+    for tree in binary_trees_list:
+        mono_number = 0
+        tree_count += 1
+        for trait in traits_list:
+            if is_tree_monophyletic(tree,trait,X):
+                mono_number += 1
+        tree_by_monophyly[tree] = mono_number
+
+    minval = min(tree_by_monophyly.values())
+    minres = [k for k, v in tree_by_monophyly.items() if v==minval]
+
+    maxval = max(tree_by_monophyly.values())
+    maxres = [k for k, v in tree_by_monophyly.items() if v==maxval]
+
+    min_counts.append(minval)
+    max_counts.append(maxval)
+    min_truth.append(any(is_tree_caterpillar(tree) for tree in minres))
+    max_truth.append(any(is_tree_caterpillar(tree) for tree in maxres))
+
+
+print(minval,maxval)
+
+min_percent = [x/(2**(min_counts.index(x)+4)) for x in min_counts]
+max_percent = [x/(2**(max_counts.index(x)+4)) for x in max_counts]
+
+fig, ax = plt.subplots()
+
+for i in range(len(min_counts)):
+    ax.annotate(min_truth[i], (tests[i], min_percent[i]))
+    ax.annotate(max_truth[i], (tests[i], max_percent[i]))
+
+plt.plot(tests, min_percent, label = "Min Values")
+plt.plot(tests, max_percent, label = "Max Values")
+plt.title('Min and Max M % for Y=2 by Number of Leaves')
+plt.xlabel('Number of Leaves')
+plt.ylabel('Percent of M')
+plt.legend()
+plt.show()
